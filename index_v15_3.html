@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LINE 文案一鍵去(emoji) 清理器｜v15.3</title>
+<style>
+  :root{--bg:#fafafa;--card:#fff;--ink:#111827;--muted:#6b7280;--line:#e5e7eb;--accent:#111827}
+  *{box-sizing:border-box} html,body{height:100%} body{margin:0;background:var(--bg);color:var(--ink);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans TC",Helvetica,Arial}
+  .container{max-width:1080px;margin:0 auto;padding:20px;line-height:1.5}
+  h1{font-size:clamp(20px,3.6vw,28px);margin:0 0 4px}
+  .sub{color:var(--muted);font-size:12px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:980px){.grid.two{grid-template-columns:1fr 1fr} .grid.three{grid-template-columns:1fr 1fr 1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .card h2{font-size:18px;margin:0 0 12px}
+  textarea,input[type="text"],input[type="tel"]{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;background:#fff;outline:none}
+  textarea{height:340px;resize:vertical} .output{background:#f8fafc}
+  .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .btn{appearance:none;border:1px solid var(--line);border-radius:999px;background:#fff;padding:8px 12px;font-size:13px;cursor:pointer}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .muted{color:var(--muted);font-size:12px} .opt{display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0}
+  .error{color:#b91c1c;font-size:12px}
+  .inline{display:flex;gap:8px;flex-wrap:wrap} .inline .field{flex:1 1 180px} .field label{display:block;font-size:12px;color:#6b7280;margin:0 0 4px}
+  footer{margin-top:20px;color:var(--muted);font-size:13px;text-align:center;line-height:1.6}
+  .pill{padding:4px 8px;border:1px dashed var(--line);border-radius:999px;font-size:12px;color:var(--muted)}
+  .ig-link{display:inline-flex;align-items:center;gap:6px;color:inherit;text-decoration:none}
+  .ig-link:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+  <div class="container">
+    <header style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">
+      <h1>LINE 文案一鍵去 (emoji) 清理器 <small class="pill">v15.3</small></h1>
+      <div class="sub">短網址員編覆蓋、長網址補員編、emoji清理、自動嵌入動態欄位。</div>
+    </header>
+
+    <div class="grid two">
+      <div class="card">
+        <h2>貼上來源文字</h2>
+        <textarea id="input" placeholder="把 LINE 複製來的文案貼在這裡…"></textarea>
+        <div class="row">
+          <button class="btn" id="clear">清空</button>
+          <button class="btn" id="copyRaw">複製原文</button>
+          <button class="btn" id="loadDemo">載入範例</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>清理後輸出</h2>
+        <textarea id="output" class="output" readonly></textarea>
+        <div class="row">
+          <button class="btn primary" id="copyClean">複製淨化文字</button>
+          <button class="btn" id="applyLeft">套用到左側</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid three" style="margin-top:16px">
+      <div class="card">
+        <h2>清理選項</h2>
+        <label class="opt"><input type="checkbox" id="live" checked>即時清理 (Live)</label>
+        <label class="opt"><input type="checkbox" id="aggr">Aggressive：移除純字母/中文括號（如 (emoji)、(貼圖)）</label>
+        <label class="opt"><input type="checkbox" id="fixDigits" checked>修復數字括號：<code>(9)(0)(0) → 900</code></label>
+        <label class="opt"><input type="checkbox" id="fixWordDigits" checked>修復英文數字括號：<code>(one)(zero)(zero) → 100</code></label>
+        <label class="opt"><input type="checkbox" id="fixBye" checked>修復 <code>(再會)</code> → 8</label>
+        <label class="opt"><input type="checkbox" id="trim" checked>移除多餘空白（不影響換行）</label>
+        <label class="opt"><input type="checkbox" id="collapse" checked>移除多餘空行（連續空行 → 單一空行）</label>
+        <div id="err" class="error" style="display:none"></div>
+      </div>
+      <div class="card">
+        <h2>動態欄位（自動嵌入文案）</h2>
+        <div class="inline">
+          <div class="field"><label>員工編號</label><input id="empId" type="text" placeholder="362102"></div>
+          <div class="field"><label>店名</label><input id="store" type="text" placeholder="成功漢神店"></div>
+          <div class="field"><label>姓名</label><input id="name" type="text" placeholder="邱偉綸"></div>
+          <div class="field"><label>電話</label><input id="phone" type="tel" placeholder="0978658101"></div>
+          <div class="field"><label>LINE ID</label><input id="lineid" type="text" placeholder="yourlineid"></div>
+        </div>
+        <p class="muted">支援網址參數預填：<code>?store=成功漢神店&name=邱偉綸&phone=0978...&lineid=myline&emp=362102</code>；欄位會自動記住。</p>
+      </div>
+      <div class="card">
+        <h2>自訂規則（選填｜正則）</h2>
+        <input id="custom" type="text" placeholder="輸入正則，如：\((?:小熊維尼|可愛貼圖)\) 或 \[(?:emoji|貼圖)\]">
+        <p class="muted">留空也能處理 90% 案例；若填寫錯誤將顯示紅字提醒。</p>
+      </div>
+    </div>
+
+    <footer>
+      <p>GitHub Pages 版 v15.3</p>
+      <p>製作者：ChatGPT-5 ｜ 構想人：362102 邱偉綸 ｜ IG：
+        <a class="ig-link" href="https://www.instagram.com/chiuyourhouse?igsh=MXZxaDd6YTE2eno3ZA%3D%3D&utm_source=qr" target="_blank">
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" style="vertical-align:middle">
+            <path fill="currentColor" d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7zm5 3.5a5.5 5.5 0 1 1 0 11.001A5.5 5.5 0 0 1 12 7.5zm0 2a3.5 3.5 0 1 0 0 7.001 3.5 3.5 0 0 0 0-7.001zM17.8 6.2a1 1 0 1 1 0 2.001 1 1 0 0 1 0-2.001z"/>
+          </svg>
+          <span style="margin-left:6px">CHIU YOUR HOUSE</span>
+        </a>
+      </p>
+    </footer>
+  </div>
+
+<script>
+(function(){
+  const $ = id=>document.getElementById(id);
+  const elIn=$("input"), elOut=$("output");
+  const elLive=$("live"), elAggr=$("aggr"), elFixDigits=$("fixDigits"), elFixWordDigits=$("fixWordDigits"), elFixBye=$("fixBye"), elTrim=$("trim"), elCollapse=$("collapse");
+  const elErr=$("err"), elCustom=$("custom");
+  const empId=$("empId"), store=$("store"), name=$("name"), phone=$("phone"), lineid=$("lineid");
+  const btnCopyRaw=$("copyRaw"), btnCopyClean=$("copyClean"), btnApplyLeft=$("applyLeft"), btnClear=$("clear"), btnLoadDemo=$("loadDemo");
+
+  const demo=`大降價✅建國路一段正路透店
+(1)(six)(5)(0)萬
+土地登記 (3)(2).(6)(7) 坪
+🔹正路透天厝目
+網址：https://sinyi.in/o/4407RM/424121`;
+
+  const LS_KEY="line_cleaner_profile_v1";
+  function saveProfile(){ const d={emp:empId.value, store:store.value, name:name.value, phone:phone.value, lineid:lineid.value}; try{localStorage.setItem(LS_KEY, JSON.stringify(d));}catch(e){} }
+  function loadProfile(){
+    let d={}; try{d=JSON.parse(localStorage.getItem(LS_KEY)||"{}");}catch(e){}
+    const url=new URL(location.href), qp=k=>url.searchParams.get(k)||"";
+    empId.value=qp("emp")||d.emp||empId.placeholder;
+    store.value=qp("store")||d.store||store.placeholder;
+    name.value=qp("name")||d.name||name.placeholder;
+    phone.value=qp("phone")||d.phone||phone.placeholder;
+    lineid.value=qp("lineid")||d.lineid||lineid.placeholder;
+  }
+  loadProfile();
+
+  function buildRegexes(){
+    const list=[];
+    // --- 不移除 (one..nine)；其餘 (英文)會移除 ---（在 clean() 裡處理特殊保留）
+    list.push(/\[(?:emoji|sticker|line\s*emoji|貼圖|表情)\]/gi);
+    list.push(/<\s*(?:emoji|sticker)\s*>/gi);
+    list.push(/\{\s*(?:emoji|sticker)\s*\}/gi);
+    list.push(/:(?:emoji|sticker|表情|貼圖):/gi);
+    if (elAggr.checked) list.push(/\(([A-Za-z\u4E00-\u9FFF]+(?:\s+[A-Za-z\u4E00-\u9FFF]+)*)\)/g);
+    const custom=elCustom.value.trim();
+    if(custom){ try{ const m=custom.match(/^\/(.+)\/([a-z]*)$/i); const rx=m?new RegExp(m[1], m[2]||"g"):new RegExp(custom,"g"); list.push(rx); elErr.style.display="none"; elErr.textContent=""; } catch(e){ elErr.style.display="block"; elErr.textContent="自訂正則格式有誤"; } }
+    else { elErr.style.display="none"; elErr.textContent=""; }
+    return list;
+  }
+
+  function mapWordDigits(t){ if(!elFixWordDigits.checked) return t; const map={zero:'0',one:'1',two:'2',three:'3',four:'4',five:'5',six:'6',seven:'7',eight:'8',nine:'9'}; return t.replace(/\((zero|one|two|three|four|five|six|seven|eight|nine)\)/gi,(_,w)=>map[w.toLowerCase()]||_); }
+  function fixBracketDigits(t){ if(!elFixDigits.checked) return t; return t.replace(/(\(\d\)){1,}/g, m=>m.replace(/[()]/g,"")); }
+  function stripOriginalPhones(t){
+    let out=t.replace(/^.*?簡訊請發.*$/gmi,"");
+    out=out.replace(/(?:\+?886[-\s]?)?09\d{2}[-\s]?\d{3}[-\s]?\d{3}/g,"");
+    out=out.replace(/0\d{1,2}[-\s]?\d{6,8}/g,"");
+    out=out.replace(/[,，]\s*(?=\n)/g,"");
+    out=out.replace(/^\s*(服務專線|簡訊請發)\s*[:：]?\s*$/gmi,"");
+    out=out.replace(/^\s*洽[^\n]*?店[^\n]*$/gmi,"");
+    return out;
+  }
+
+  function fixSinyiShortLinks(t){
+    const eid=empId.value.trim(); if(!eid) return t;
+    return t.replace(/https?:\/\/sinyi\.in\/o\/([A-Za-z0-9]+)\/(\d+)(?:\/(\d+))?(?:\/([A-Za-z\u4e00-\u9fa5]+))?/g, (m, code, n1, n2, tail) => {
+      let url = `https://sinyi.in/o/${code}/${eid}`;
+      if (tail) url += `/${tail}`;
+      return url;
+    });
+  }
+  function fixSinyiFullLinks(t){
+    const eid=empId.value.trim(); if(!eid) return t;
+    return t.replace(/https?:\/\/www\.sinyi\.com\.tw\/buy\/house\/([A-Za-z0-9]+)\/(\d+)(?:\/(\d+))?/g, (m, code, id, old) => {
+      return `https://www.sinyi.com.tw/buy/house/${code}/${id}/${eid}`;
+    });
+  }
+  function removeBrandFromBody(t){
+    let out=t.replace(/\u3000/g," ");
+    out=out.replace(/^.*信義房屋.*店.*$/gmi,"");
+    out=out.replace(/信義房屋[^\n]*?店[ \t]*\S+/g,"");
+    out=out.replace(/洽[^\n]*?店[ \t]*\S+/g,"");
+    out=out.replace(/^\s*[\u4e00-\u9fa5]{2,5}\s*[，,。.\-–—]*\s*$/gm,"");
+    out=out.replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n");
+    return out;
+  }
+  function buildContactBlock(){
+    const s=store.value.trim(), n=name.value.trim();
+    const phoneStr=phone.value.trim()?`電話：${phone.value.trim()}\n`:"";
+    const lineStr=lineid.value.trim()?`LINE ID：${lineid.value.trim()}\n`:"";
+    const brand=(s||n)?`信義房屋${s?s:""}${s&&n?" ":""}${n?n:""}\n`:"";
+    return brand+phoneStr+lineStr;
+  }
+  function insertContactsBeforeFirstUrl(t){
+    const block=buildContactBlock(); if(!block) return t;
+    const urlLineRegex=/^(?=.*https?:\/\/)\S.*$|^\s*(?:網址|連結)\s*[:：]?\s*https?:\/\/.*$/gmi;
+    let inserted=false;
+    let out=t.replace(urlLineRegex,(m)=>{ if(inserted) return m; inserted=true; return block+m; });
+    if(!inserted){ out=out.replace(/\s*$/,"\n"+block); }
+    return out;
+  }
+
+  function clean(text){
+    let out=text;
+    // 先保留 (zero..nine) 與 (數字)，刪除其他 (英文) 標記
+    out = out.replace(/\(([A-Za-z\s]+)\)/g, (m, w) => {
+      const s = w.trim().toLowerCase();
+      const keep = ['zero','one','two','three','four','five','six','seven','eight','nine'];
+      return keep.includes(s) ? m : '';
+    });
+    // 一般 emoji/貼圖標記清除
+    const regs=buildRegexes(); for(const rx of regs) out=out.replace(rx,"");
+    // 清理空白
+    out=out.replace(/[\u3000\t]+/g," ").replace(/ {2,}/g," ").replace(/^\s+|\s+$/gm,"").replace(/\n{3,}/g,"\n\n");
+    // 後處理：數字翻譯、去括號、洗電話等
+    if (out.includes("(再會)")) out=out.replace(/\(再會\)/g,"8");
+    out=mapWordDigits(out);
+    out=fixBracketDigits(out);
+    out=stripOriginalPhones(out);
+    out=fixSinyiShortLinks(out);
+    out=fixSinyiFullLinks(out);
+    out=removeBrandFromBody(out);
+    out=insertContactsBeforeFirstUrl(out);
+    return out;
+  }
+
+  function render(){ elOut.value=clean(elIn.value); saveProfile(); }
+  ["input","keyup","change"].forEach(ev=>{
+    [elIn,elCustom,elAggr,elTrim,elCollapse,elFixDigits,elFixWordDigits,elFixBye,empId,store,name,phone,lineid,elLive].forEach(el=>el.addEventListener(ev, render));
+  });
+  function copyText(text){ if(navigator.clipboard&&isSecureContext){return navigator.clipboard.writeText(text).catch(()=>fallback());} else return fallback();
+    function fallback(){ const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); return Promise.resolve(); } }
+  btnCopyRaw.addEventListener("click", ()=>copyText(elIn.value).then(()=>alert("已複製原文")));
+  btnCopyClean.addEventListener("click", ()=>copyText(elOut.value).then(()=>alert("已複製淨化文字")));
+  btnApplyLeft.addEventListener("click", ()=>{ elIn.value=elOut.value; render(); });
+  btnClear.addEventListener("click", ()=>{ elIn.value=""; render(); });
+  btnLoadDemo.addEventListener("click", ()=>{ elIn.value=demo; render(); });
+  render();
+})();
+</script>
+</body>
+</html>
